@@ -1,0 +1,81 @@
+.butterfly-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.butterfly-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.butterfly {
+    width: 60px;
+    height: auto;
+    cursor: pointer;
+  transition: transform 1s ease-in-out;
+    animation: flutter 0.8s infinite alternate ease-in-out;
+  pointer-events: auto;
+  }
+  
+  /* 🦋 Smooth Wing Fluttering */
+  @keyframes flutter {
+    0% { transform: rotate(5deg) translateY(-3px); }
+    100% { transform: rotate(-5deg) translateY(3px); }
+  }
+  
+  /* ✨ Elegant Floating Message */
+  .butterfly-message {
+    position: absolute;
+  font-size: 14px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0px 0px 6px rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 8px;
+  border-radius: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+  animation: messageAppear 2.5s forwards;
+  top: 50%;
+  transform: translateY(-50%);
+  }
+  
+  /* 🔥 Smooth Text Animation */
+@keyframes messageAppear {
+  0% { 
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+  }
+  
+  /* 🌬️ Message Moves Gently with Butterfly */
+  @keyframes followButterfly {
+    0% { transform: translateX(0px); }
+    50% { transform: translateX(3px); }
+    100% { transform: translateX(0px); }
+  }
+  
+.butterfly-click-area {
+  position: relative;
+  display: inline-block;
+}
+  
