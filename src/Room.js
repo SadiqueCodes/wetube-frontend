@@ -4,6 +4,7 @@ import io from "socket.io-client";
 import ReactPlayer from "react-player";
 import Chat from "./Chat";
 import VideoSuggestions from "./VideoSuggestions";
+import YouTubeSearch from "./YouTubeSearch";
 import "./styles.css";
 
 // Create socket connection outside component to prevent multiple connections
@@ -130,12 +131,9 @@ function Room() {
         </div>
         
         <div className="main-content">
-          <input
-            type="text"
-            placeholder="Enter YouTube URL"
-            value={videoUrl}
-            onChange={(e) => handleUrlChange(e.target.value)}
-            className="video-input"
+          <YouTubeSearch 
+            onVideoSelect={handleUrlChange}
+            currentVideoUrl={videoUrl}
           />
           <div className="video-container">
             <ReactPlayer
