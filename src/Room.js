@@ -35,7 +35,15 @@ function Room() {
   const [videoUrl, setVideoUrl] = useState("");
   const [playing, setPlaying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
+  const [isFullscreenChatOpen, setIsFullscreenChatOpen] = useState(false);
+  const [fullscreenMessage, setFullscreenMessage] = useState("");
   const playerRef = useRef(null);
+  const videoContainerRef = useRef(null);
+  const hasInitializedMessagesRef = useRef(false);
+  const previousMessageCountRef = useRef(0);
+  const currentUser = localStorage.getItem("userName") || "Anonymous";
 
   useEffect(() => {
     // Connect socket when component mounts
@@ -86,6 +94,50 @@ function Room() {
     };
   }, [roomCode]);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement;
+      const container = videoContainerRef.current;
+      const isFullscreenVideo =
+        !!fullscreenElement &&
+        !!container &&
+        (fullscreenElement === container || container.contains(fullscreenElement));
+      setIsVideoFullscreen(isFullscreenVideo);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVideoFullscreen) {
+      setIsFullscreenChatOpen(false);
+    }
+  }, [isVideoFullscreen]);
+
+  useEffect(() => {
+    const currentCount = chatMessages.length;
+
+    // Skip auto-open on initial history hydration.
+    if (!hasInitializedMessagesRef.current) {
+      hasInitializedMessagesRef.current = true;
+      previousMessageCountRef.current = currentCount;
+      return;
+    }
+
+    if (
+      isVideoFullscreen &&
+      !isFullscreenChatOpen &&
+      currentCount > previousMessageCountRef.current
+    ) {
+      setIsFullscreenChatOpen(true);
+    }
+
+    previousMessageCountRef.current = currentCount;
+  }, [chatMessages, isVideoFullscreen, isFullscreenChatOpen]);
+
   const handlePlay = () => {
     if (playerRef.current && isConnected) {
       const currentTime = playerRef.current.getCurrentTime();
@@ -122,12 +174,54 @@ function Room() {
     }
   };
 
+  const toggleVideoFullscreen = async () => {
+    const container = videoContainerRef.current;
+    if (!container) return;
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await container.requestFullscreen();
+      }
+    } catch (error) {
+      console.error("Failed to toggle fullscreen:", error);
+    }
+  };
+
+  const getCommentOpacityClass = (indexFromEnd) => {
+    if (indexFromEnd <= 1) return "live-comment-strong";
+    if (indexFromEnd === 2) return "live-comment-medium";
+    if (indexFromEnd === 3) return "live-comment-soft";
+    return "live-comment-faint";
+  };
+
+  const recentLiveMessages = chatMessages.slice(-6);
+
+  const sendFullscreenMessage = (event) => {
+    event.preventDefault();
+    const trimmedMessage = fullscreenMessage.trim();
+    if (!trimmedMessage || !isConnected) return;
+
+    const messageData = {
+      roomCode,
+      message: trimmedMessage,
+      sender: currentUser,
+      timestamp: new Date().toISOString(),
+      socketId: socket.id
+    };
+
+    socket.emit("chat-message", messageData);
+    setChatMessages((prev) => [...prev, { ...messageData, isCurrentUser: true }]);
+    setFullscreenMessage("");
+  };
+
   return (
     <div className="room-container">
       <h2>Room Code: {roomCode}</h2>
       <div className="room-content">
         <div className="side-panel">
-          <Chat socket={socket} roomCode={roomCode} />
+          <Chat socket={socket} roomCode={roomCode} onMessagesChange={setChatMessages} />
         </div>
         
         <div className="main-content">
@@ -135,7 +229,7 @@ function Room() {
             onVideoSelect={handleUrlChange}
             currentVideoUrl={videoUrl}
           />
-          <div className="video-container">
+          <div className="video-container" ref={videoContainerRef}>
             <ReactPlayer
               ref={playerRef}
               url={videoUrl}
@@ -150,11 +244,71 @@ function Room() {
                 youtube: {
                   playerVars: {
                     modestbranding: 1,
-                    controls: 1
+                    controls: 1,
+                    fs: 0
                   }
                 }
               }}
             />
+            <button
+              type="button"
+              className="video-fullscreen-toggle"
+              onClick={toggleVideoFullscreen}
+            >
+              {isVideoFullscreen ? "Exit Fullscreen" : "Fullscreen Chat Mode"}
+            </button>
+            {isVideoFullscreen && (
+              <button
+                type="button"
+                className="fullscreen-chat-toggle"
+                onClick={() => setIsFullscreenChatOpen((prev) => !prev)}
+              >
+                {isFullscreenChatOpen ? "Hide Chat" : "Open Chat"}
+              </button>
+            )}
+            {isVideoFullscreen && isFullscreenChatOpen && recentLiveMessages.length > 0 && (
+              <div className="live-chat-overlay" aria-live="polite">
+                {recentLiveMessages.map((msg, index) => {
+                  const indexFromEnd = recentLiveMessages.length - 1 - index;
+                  return (
+                    <div
+                      key={`overlay-${msg.timestamp || index}-${index}`}
+                      className={`live-comment ${getCommentOpacityClass(indexFromEnd)}`}
+                    >
+                      <span className="live-comment-sender">{msg.sender}:</span>{" "}
+                      <span>{msg.message}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {isVideoFullscreen && isFullscreenChatOpen && (
+              <form className="fullscreen-chat-composer" onSubmit={sendFullscreenMessage}>
+                <input
+                  type="text"
+                  className="fullscreen-chat-input"
+                  placeholder={isConnected ? "Send a message..." : "Reconnecting..."}
+                  value={fullscreenMessage}
+                  onChange={(e) => setFullscreenMessage(e.target.value)}
+                  disabled={!isConnected}
+                />
+                <button
+                  type="submit"
+                  className="fullscreen-chat-send"
+                  disabled={!isConnected || !fullscreenMessage.trim()}
+                >
+                  Send
+                </button>
+                <button
+                  type="button"
+                  className="fullscreen-chat-close"
+                  onClick={() => setIsFullscreenChatOpen(false)}
+                  aria-label="Close chat"
+                >
+                  x
+                </button>
+              </form>
+            )}
           </div>
         </div>
 

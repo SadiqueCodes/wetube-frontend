@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./Chat.css";
 
-function Chat({ socket, roomCode }) {
+function Chat({ socket, roomCode, onMessagesChange }) {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [isConnected, setIsConnected] = useState(false);
@@ -69,6 +69,12 @@ function Chat({ socket, roomCode }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (onMessagesChange) {
+      onMessagesChange(messages);
+    }
+  }, [messages, onMessagesChange]);
 
   const sendMessage = (e) => {
     e?.preventDefault();
